@@ -1,0 +1,65 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.libs
+*.dll
+*.dylib
+*.bundle
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# IDEs
+.vscode/
+.vs/
+*.swp
+*.swo
+*.suo
+*.user
+*.userosscache
+*.sln.docconfigurations
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeSettings.json
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+_deps/
+
+# Build directory
+build/
+bin/
+x64/
+Debug/
+Release/
+
+# Logs
+*.log
+
+# Other
+vc*.pdb
+*.ilk
+*.exp
+config.ini
