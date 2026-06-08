@@ -11,6 +11,8 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
 
     steps:
     - uses: actions/checkout@v4
@@ -30,6 +32,11 @@ jobs:
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config Release
 
+    - name: Generate Artifact Attestation
+      uses: actions/attest-build-provenance@v1
+      with:
+        subject-path: ${{github.workspace}}/build/Release/DisplayMonitor.exe
+
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
@@ -45,7 +52,8 @@ jobs:
         body: |
           Automated release for version ${{ steps.extract_version.outputs.VERSION }}.
           
-          See the commit history for changes.
+          This release includes a GitHub Artifact Attestation. You can verify the integrity of the binary using the GitHub CLI:
+          `gh attestation verify DisplayMonitor.exe --owner ${{ github.repository_owner }}`
         files: ${{github.workspace}}/build/Release/DisplayMonitor.exe
         draft: false
         prerelease: false
