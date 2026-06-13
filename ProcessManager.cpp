@@ -16,13 +16,49 @@ bool ProcessManager::RestartProcess(const std::string& processName, const std::s
         Logger::Log(LogLevel::Warning, "Process " + processName + " not found running.");
     }
 
-    if (StartNewProcess(processPath)) {
-        Logger::Log(LogLevel::Info, "Successfully started process: " + processPath);
-        return true;
-    } else {
-        Logger::Log(LogLevel::Error, "Failed to start process: " + processPath);
-        return false;
+    const int maxRetries = 3;
+    const int verifyAttempts = 5;
+    const DWORD verifyDelayMs = 200;
+    const DWORD retryDelayMs = 1000;
+
+    for (int attempt = 1; attempt <= maxRetries; ++attempt) {
+        if (attempt > 1) {
+            DWORD existingPid = FindProcessId(processName);
+            if (existingPid != 0) {
+                Logger::Log(LogLevel::Info, "Process is already running (detected late) with PID: " + std::to_string(existingPid));
+                return true;
+            }
+        }
+
+        Logger::Log(LogLevel::Info, "Starting process: " + processPath + " (Attempt " + std::to_string(attempt) + " of " + std::to_string(maxRetries) + ")");
+        if (StartNewProcess(processPath)) {
+            DWORD newPid = 0;
+            for (int verify = 0; verify < verifyAttempts; ++verify) {
+                newPid = FindProcessId(processName);
+                if (newPid != 0) {
+                    break;
+                }
+                Sleep(verifyDelayMs);
+            }
+
+            if (newPid != 0) {
+                Logger::Log(LogLevel::Info, "Successfully started process: " + processPath + " (PID: " + std::to_string(newPid) + ")");
+                return true;
+            } else {
+                Logger::Log(LogLevel::Warning, "Process started but PID for " + processName + " was not found on attempt " + std::to_string(attempt));
+            }
+        } else {
+            Logger::Log(LogLevel::Error, "Failed to start process: " + processPath + " on attempt " + std::to_string(attempt));
+        }
+
+        if (attempt < maxRetries) {
+            Logger::Log(LogLevel::Info, "Retrying in " + std::to_string(retryDelayMs) + "ms...");
+            Sleep(retryDelayMs);
+        }
     }
+
+    Logger::Log(LogLevel::Error, "Failed to start process after " + std::to_string(maxRetries) + " attempts.");
+    return false;
 }
 
 DWORD ProcessManager::FindProcessId(const std::string& processName) {
@@ -46,10 +82,21 @@ DWORD ProcessManager::FindProcessId(const std::string& processName) {
 }
 
 bool ProcessManager::TerminateProcessById(DWORD dwProcessId) {
-    HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, dwProcessId);
-    if (hProcess == NULL) return false;
+    HANDLE hProcess = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, dwProcessId);
+    if (hProcess == NULL) {
+        // Fallback to only PROCESS_TERMINATE if SYNCHRONIZE is not permitted
+        hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, dwProcessId);
+        if (hProcess == NULL) return false;
+        BOOL result = TerminateProcess(hProcess, 0);
+        CloseHandle(hProcess);
+        return result != 0;
+    }
 
     BOOL result = TerminateProcess(hProcess, 0);
+    if (result) {
+        // Wait up to 5000 milliseconds for the process to exit
+        WaitForSingleObject(hProcess, 5000);
+    }
     CloseHandle(hProcess);
     return result != 0;
 }
